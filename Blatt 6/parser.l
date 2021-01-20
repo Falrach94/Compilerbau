@@ -6,7 +6,8 @@
   } val_t;
  #define YYSTYPE val_t
   #include "y.tab.h"
-  //extern double yylval;
+  #include <string.h>
+  
 %}
 
 varLetter [a-zA-Z]
@@ -17,13 +18,13 @@ sin		{return SIN;}
 cos		{return COS;}
 tan		{return TAN;}
 abs		{return ABS;}
-fin		{return FIB;}
+fib		{return FIB;}
 pi		{return PI;}
 
 [ ]*:=[ ]*	{return ASSIGNMENT;}
 
 [a-zA-Z]+[a-zA-Z0-9]* {
-		yylval.text = yytext;
+		yylval.text = strdup(yytext);
 		return VARIABLE;
 		}
 

@@ -1,7 +1,7 @@
 %{
   typedef union
   {
-     const char* text;
+     char* text;
      double value;
   } val_t;
  #define YYSTYPE val_t
@@ -17,6 +17,7 @@
   int yylex();
   int findVar(const char* name);
   int addVar(const char* name);
+  int fib(int n);
   
   #define MAX_VAR_COUNT 100
   #define MAX_VAR_LEN 32
@@ -27,7 +28,7 @@
      double value; 
   } var_t;
 
-  char currentVar[MAX_VAR_LEN];
+  char nameTmp[MAX_VAR_LEN];
   
   var_t varTable[MAX_VAR_COUNT];
   int varCount = 0; 
@@ -52,7 +53,7 @@ Start		:  Expression          {printf ("= %f\n", $1.value);}
             	|  QUIT                {quit = 1;}
 		|  Assignment
 		
-Assignment 	: VariableName ASSIGNMENT Expression 
+Assignment 	: VARIABLE ASSIGNMENT Expression 
 				{
 				   int id = findVar($1.text);
 				   if(id == -1)
@@ -70,8 +71,9 @@ Assignment 	: VariableName ASSIGNMENT Expression
 				   else
 				   {
 				      varTable[id].value = $3.value;
-				      printf("%s was assigned value %f\n", $1.text, $3.value);
+				      printf("%s was assigned value %f\n", varTable[id].name, $3.value);
 				   }
+				   free($1.text);
 				}
 		
 Expression  	:  Expression '+' Division {$$.value = $1.value + $3.value;}
@@ -90,36 +92,26 @@ Factor      	:  '(' Expression ')'  {$$.value = $2.value;}
             	|  Functions
             	|  Variable
             	
-VariableName 	: VARIABLE  {
-				int len = strlen($1.text);
+Variable	: VARIABLE  {
+				int id = findVar($1.text);
 				
-				if(len > MAX_VAR_LEN)
+				if(id == -1)
 				{
-			          printf("Maximum variable name length (%d) exceeded!\n", MAX_VAR_LEN);
+				   printf("Unkown variable %s!\n", $1.text);
+				   yyerrok;
 				}
-				else
+				else if(id == -2)
 				{
-				   strcpy(currentVar, $1.text);
-				  if(currentVar[len-1] == '\n')
-				  {
-				    currentVar[len-1] = '\0';
-				  }  
+				   printf("Maximum variable name length (%d) exceeded!\n", MAX_VAR_LEN);
+				}
+			 	else
+			 	{
+				   $$.value = varTable[id].value;
 				}
 				
-				$$.text = currentVar;
-			    } 
+				free($1.text);
+			    }
             	
-Variable	: VariableName	{
-				  int id = findVar($1.text);
-				  if(id == -1)
-				  {
-				     printf("Unkown variable %s!\n", $1.text);
-				  }
-				  else
-				  {
-				     $$.value = varTable[id].value;
-				  }
-				}
             	
 Constants	:  PI			{$$.value = 3.14159265;}
 		|  'e' 			{$$.value = 2.71828183;}		
@@ -128,6 +120,7 @@ Functions	:  SIN '(' Expression ')'	{$$.value = sin($3.value);}
 		|  COS '(' Expression ')'	{$$.value = cos($3.value);}
 		|  TAN '(' Expression ')'	{$$.value = tan($3.value);}
 		|  ABS '(' Expression ')'	{$$.value = abs($3.value);}
+		|  FIB '(' Expression ')'	{$$.value = fib((int)$3.value);}
 
 %%
 int main (void) {
@@ -135,29 +128,65 @@ int main (void) {
     yyparse();
 }
 
+//https://www.geeksforgeeks.org/c-program-for-fibonacci-numbers/
+int fib(int n)
+{
+ 
+    int a = 0, b = 1, c, i; 
+    if (n == 0) 
+        return a; 
+    for (i = 2; i <= n; i++) { 
+        c = a + b; 
+        a = b; 
+        b = c; 
+    } 
+    return b;  
+}
+
 int addVar(const char* name)
 {
+   int len = strlen(name); 
    if(varCount == MAX_VAR_COUNT)
    {
       return -1;
    }
-   if(strlen(name) > MAX_VAR_LEN)
+   if(len > MAX_VAR_LEN)
    {
       return -2;
    }
       
    strcpy(varTable[varCount].name, name);
    
+   if(name[len-1] == '\n')
+   {
+      varTable[varCount].name[len-1] = '\0';
+   }   
    varCount++;
    return varCount-1;
 }
 
 int findVar(const char* name)
 {
+   int len = strlen(name);
+
+   if(len > MAX_VAR_LEN)
+   {
+      return 2;
+   }
+
+   strcpy(nameTmp, name);
+   
+   //workarround
+   if(nameTmp[len-1] == '\n')
+   {
+      nameTmp[len-1] = '\0';
+   }
+   
+
    int i;
    for(i = 0; i < varCount; i++)
    {
-      if(strcmp(varTable[i].name, name) == 0)
+      if(strcmp(varTable[i].name, nameTmp) == 0)
       {
       	 return i;
       }
